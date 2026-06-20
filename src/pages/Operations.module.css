@@ -1,0 +1,85 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+.header { display: flex; justify-content: space-between; align-items: center; }
+.pageTitle { font-size: 22px; font-weight: 700; }
+.addBtn {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--primary); color: white;
+  border-radius: var(--radius-sm); padding: 8px 14px;
+  font-size: 13px; font-weight: 600;
+}
+.addBtn:hover { background: var(--primary-dark); }
+.cancelBtn {
+  padding: 8px 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); font-size: 13px;
+}
+.cancelBtn:hover { background: var(--bg); }
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.input {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-size: 13px;
+  width: 100%;
+  outline: none;
+}
+.input:focus { border-color: var(--primary); }
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.searchBox {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 7px 12px;
+  flex: 1; min-width: 200px;
+}
+.searchInput { border: none; background: none; outline: none; flex: 1; font-size: 13px; }
+.typeFilters { display: flex; gap: 4px; }
+.typeBtn {
+  padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 500;
+  border: 1px solid var(--border); color: var(--text2); background: var(--surface);
+  transition: all .15s;
+}
+.typeBtn:hover { background: var(--bg); }
+.typeBtnActive { background: var(--primary-light) !important; color: var(--primary) !important; border-color: #BFDBFE !important; }
+
+.summary { display: flex; gap: 8px; align-items: center; font-size: 13px; margin-left: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.table th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.table td {
+  padding: 11px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.table tr:last-child td { border-bottom: none; }
+.table tr:hover td { background: var(--bg); }

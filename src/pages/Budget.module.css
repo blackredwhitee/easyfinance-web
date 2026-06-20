@@ -1,0 +1,13 @@
+.page { display: flex; flex-direction: column; gap: 16px; padding: 24px; overflow-y: auto; flex: 1; }
+.header { display: flex; justify-content: space-between; align-items: center; }
+.pageTitle { font-size: 22px; font-weight: 700; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 0; }
+.sectionHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+.sectionTitle { font-size: 15px; font-weight: 600; color: var(--text); }
+.addBtn { display: flex; align-items: center; gap: 5px; background: var(--primary); color: white; border-radius: var(--radius-sm); padding: 7px 12px; font-size: 12px; font-weight: 600; }
+.addBtn:hover { background: var(--primary-dark); }
+.cancelBtn { padding: 7px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); font-size: 12px; }
+.cancelBtn:hover { background: var(--bg); }
+.input { padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg); font-size: 13px; width: 100%; outline: none; }
+.input:focus { border-color: var(--primary); }
