@@ -1,17 +1,81 @@
-import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Lightbulb, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Lightbulb, Plus, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, AreaChart, Area, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useFinanceStore } from '../store/financeStore';
-import { formatMoney } from '../utils/format';
+import { formatMoney, formatDate } from '../utils/format';
 import { getTotalBalance, sumByType, getMonthRange, isInPeriod, calcFinHealth, daysUntilEmpty } from '../utils/calc';
 import { Card, GaugeInline, ProgressBar, Badge } from '../components/ui';
+import type { Operation } from '../types';
 import styles from './Dashboard.module.css';
 
 const HEALTH_LABELS: Record<string, string> = {
   finState: 'Общее', money: 'Деньги', budget: 'Бюджет', debt: 'Долги', savings: 'Накопления'
 };
 
+interface DrillDown {
+  title: string;
+  ops: Operation[];
+}
+
+function OpRow({ op, categories, accounts }: { op: Operation; categories: any[]; accounts: any[] }) {
+  const cat = categories.find(c => c.id === op.categoryId);
+  const acc = accounts.find(a => a.id === op.accountId);
+  const isIncome = op.type === 'income';
+  const isTransfer = op.type === 'transfer';
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 0', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0 }}>
+        {cat?.icon || '💳'}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {op.comment || cat?.name || 'Операция'}
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text2)' }}>
+          {acc?.name} · {cat?.name} · {formatDate(op.date)}
+        </div>
+      </div>
+      <div style={{ fontWeight: 700, fontSize: 13, color: isIncome ? 'var(--success)' : isTransfer ? 'var(--text2)' : 'var(--danger)', flexShrink: 0 }}>
+        {isIncome ? '+' : isTransfer ? '↔' : '−'}{formatMoney(op.amount)}
+      </div>
+    </div>
+  );
+}
+
+function DrillPanel({ drill, onClose, categories, accounts }: { drill: DrillDown; onClose: () => void; categories: any[]; accounts: any[] }) {
+  const income = drill.ops.filter(o => o.type === 'income').reduce((s, o) => s + o.amount, 0);
+  const expense = drill.ops.filter(o => o.type === 'expense').reduce((s, o) => s + o.amount, 0);
+  return (
+    <div style={{
+      position: 'fixed', right: 0, top: 0, bottom: 0, width: 360,
+      background: 'var(--surface)', borderLeft: '1px solid var(--border)',
+      boxShadow: 'var(--shadow-md)', zIndex: 100, display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{drill.title}</div>
+          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{drill.ops.length} операций</div>
+        </div>
+        <button onClick={onClose} style={{ padding: 6, borderRadius: 8, color: 'var(--text2)' }}><X size={18} /></button>
+      </div>
+      <div style={{ display: 'flex', gap: 12, padding: '12px 20px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+        {income > 0 && <div><div style={{ fontSize: 11, color: 'var(--text2)' }}>Доходы</div><div style={{ fontWeight: 700, color: 'var(--success)' }}>{formatMoney(income)}</div></div>}
+        {expense > 0 && <div><div style={{ fontSize: 11, color: 'var(--text2)' }}>Расходы</div><div style={{ fontWeight: 700, color: 'var(--danger)' }}>{formatMoney(expense)}</div></div>}
+        {income > 0 && expense > 0 && <div><div style={{ fontSize: 11, color: 'var(--text2)' }}>Итого</div><div style={{ fontWeight: 700, color: income - expense >= 0 ? 'var(--success)' : 'var(--danger)' }}>{formatMoney(income - expense)}</div></div>}
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0 20px' }}>
+        {drill.ops.length === 0
+          ? <p style={{ color: 'var(--text3)', padding: '20px 0', fontSize: 13 }}>Нет операций</p>
+          : drill.ops.map(op => <OpRow key={op.id} op={op} categories={categories} accounts={accounts} />)
+        }
+      </div>
+    </div>
+  );
+}
+
 export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
   const { accounts, operations, goals, budget, recommendations, categories } = useFinanceStore();
+  const [drill, setDrill] = useState<DrillDown | null>(null);
 
   const totalBalance = getTotalBalance(accounts);
   const { start, end } = getMonthRange();
@@ -34,13 +98,38 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
   // Последние операции
   const recent = [...operations].filter(o => !o.isDeleted).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5);
 
-  // Мини-график тренда
-  const trendData = Array.from({ length: 7 }, (_, i) => {
+  // Тренд 7 дней
+  const trendDays = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const ds = d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
-    const dayOps = operations.filter(o => !o.isDeleted && new Date(o.date).toDateString() === d.toDateString());
-    return { name: ds, расходы: sumByType(dayOps, 'expense'), доходы: sumByType(dayOps, 'income') };
+    return d;
   });
+  const trendData = trendDays.map(d => {
+    const dayOps = operations.filter(o => !o.isDeleted && new Date(o.date).toDateString() === d.toDateString());
+    return {
+      name: d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' }),
+      расходы: sumByType(dayOps, 'expense'),
+      доходы: sumByType(dayOps, 'income'),
+      date: d,
+    };
+  });
+
+  const onTrendClick = (data: any) => {
+    if (!data?.activePayload?.length) return;
+    const idx = data.activeTooltipIndex ?? trendData.findIndex(t => t.name === data.activeLabel);
+    if (idx < 0) return;
+    const d = trendDays[idx];
+    const dayOps = operations.filter(o => !o.isDeleted && new Date(o.date).toDateString() === d.toDateString());
+    if (!dayOps.length) return;
+    setDrill({ title: d.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' }), ops: dayOps.sort((a, b) => a.amount - b.amount) });
+  };
+
+  const onPieClick = (data: any) => {
+    if (!data?.name) return;
+    const catName = data.name;
+    const catOps = expOps.filter(o => (categories.find(c => c.id === o.categoryId)?.name || 'Прочее') === catName)
+      .sort((a, b) => b.amount - a.amount);
+    setDrill({ title: `Категория: ${catName}`, ops: catOps });
+  };
 
   const recIcon = (type: string) => {
     if (type === 'warning') return <AlertTriangle size={14} color="var(--warning)" />;
@@ -50,6 +139,8 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
 
   return (
     <div className={styles.page}>
+      {drill && <DrillPanel drill={drill} onClose={() => setDrill(null)} categories={categories} accounts={accounts} />}
+
       {/* Header */}
       <div className={styles.header}>
         <div>
@@ -117,12 +208,17 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
 
         {/* Pie */}
         <Card style={{ flex: 1 }}>
-          <div className={styles.cardTitle}>Расходы по категориям</div>
+          <div className={styles.cardTitle}>Расходы по категориям <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 400, textTransform: 'none' }}>— кликните для деталей</span></div>
           {pieData.length > 0 ? (
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               <ResponsiveContainer width={130} height={130}>
                 <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={36} outerRadius={60} paddingAngle={3} dataKey="value">
+                  <Pie
+                    data={pieData} cx="50%" cy="50%" innerRadius={36} outerRadius={60}
+                    paddingAngle={3} dataKey="value"
+                    onClick={onPieClick}
+                    style={{ cursor: 'pointer' }}
+                  >
                     {pieData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                   </Pie>
                   <Tooltip formatter={(v: any) => formatMoney(Number(v))} />
@@ -130,7 +226,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
               </ResponsiveContainer>
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {pieData.map((item, i) => (
-                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div key={item.name} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => onPieClick(item)}>
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: PIE_COLORS[i % PIE_COLORS.length], flexShrink: 0 }} />
                     <span style={{ flex: 1, fontSize: 12, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</span>
                     <span style={{ fontSize: 12, fontWeight: 600 }}>{formatMoney(item.value)}</span>
@@ -149,8 +245,7 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {recommendations.map(r => (
               <div key={r.id} style={{
-                padding: '10px 12px',
-                borderRadius: 8,
+                padding: '10px 12px', borderRadius: 8,
                 background: r.type === 'warning' ? 'var(--warning-light)' : r.type === 'success' ? 'var(--success-light)' : 'var(--primary-light)',
                 borderLeft: `3px solid ${r.type === 'warning' ? 'var(--warning)' : r.type === 'success' ? 'var(--success)' : 'var(--primary)'}`,
               }}>
@@ -169,9 +264,9 @@ export function Dashboard({ onNavigate }: { onNavigate: (p: string) => void }) {
       <div className={styles.bottomRow}>
         {/* Trend chart */}
         <Card style={{ flex: 2 }}>
-          <div className={styles.cardTitle}>Тренд за 7 дней</div>
+          <div className={styles.cardTitle}>Тренд за 7 дней <span style={{ fontSize: 10, color: 'var(--text3)', fontWeight: 400, textTransform: 'none' }}>— кликните по дню для деталей</span></div>
           <ResponsiveContainer width="100%" height={160}>
-            <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+            <AreaChart data={trendData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }} onClick={onTrendClick} style={{ cursor: 'pointer' }}>
               <defs>
                 <linearGradient id="inc" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#16A34A" stopOpacity={0.3} />
