@@ -94,30 +94,34 @@ export const useFinanceStore = create<FinanceState>()(
             supabase.from('budget_items').select('*'),
           ]);
 
-          // Если у пользователя нет данных — вставляем дефолтные категории
+          let finalAccounts = accounts?.map(mapAccount) ?? [];
+          let finalCategories = categories?.map(mapCategory) ?? demoCategories;
+
+          // Новый пользователь — заполняем дефолтные данные
+          if (accounts && accounts.length === 0) {
+            const defaultAccs = demoAccounts.map(a => ({
+              name: a.name, balance: a.balance, currency: a.currency, type: a.type, color: a.color,
+            }));
+            const { data: insertedAccs } = await supabase.from('accounts').insert(defaultAccs).select();
+            if (insertedAccs) finalAccounts = insertedAccs.map(mapAccount);
+          }
+
           if (categories && categories.length === 0) {
             const defaultCats = demoCategories.map(c => ({
               name: c.name, type: c.type, icon: c.icon, color: c.color,
             }));
-            const { data: inserted } = await supabase.from('categories').insert(defaultCats).select();
-            set({
-              accounts: accounts?.map(mapAccount) ?? [],
-              categories: inserted?.map(mapCategory) ?? demoCategories,
-              operations: operations?.map(mapOperation) ?? [],
-              goals: goals?.map(mapGoal) ?? [],
-              budget: budget?.map(mapBudget) ?? demoBudget,
-              isDemoMode: false, syncing: false,
-            });
-          } else {
-            set({
-              accounts: accounts?.map(mapAccount) ?? [],
-              categories: categories?.map(mapCategory) ?? demoCategories,
-              operations: operations?.map(mapOperation) ?? [],
-              goals: goals?.map(mapGoal) ?? [],
-              budget: budget?.map(mapBudget) ?? demoBudget,
-              isDemoMode: false, syncing: false,
-            });
+            const { data: insertedCats } = await supabase.from('categories').insert(defaultCats).select();
+            if (insertedCats) finalCategories = insertedCats.map(mapCategory);
           }
+
+          set({
+            accounts: finalAccounts,
+            categories: finalCategories,
+            operations: operations?.map(mapOperation) ?? [],
+            goals: goals?.map(mapGoal) ?? [],
+            budget: budget?.map(mapBudget) ?? demoBudget,
+            isDemoMode: false, syncing: false,
+          });
         } catch {
           set({ syncing: false });
         }
