@@ -18,7 +18,9 @@ export function Auth({ onDemo }: { onDemo: () => void }) {
       await signIn(form.email, form.password);
     } else {
       await signUp(form.email, form.password, form.name);
-      setSuccess('Письмо с подтверждением отправлено на почту. Проверьте ящик и войдите.');
+      if (!useAuthStore.getState().error) {
+        setSuccess('Аккаунт создан! Если email-подтверждение включено — проверьте почту. Иначе сразу войдите.');
+      }
     }
     setLoading(false);
   };
