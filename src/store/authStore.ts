@@ -48,13 +48,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       email, password,
       options: { data: { name } },
     });
-    if (error) set({ error: error.message || JSON.stringify(error) });
+    if (error) set({ error: error.message || error.status?.toString() || 'Ошибка регистрации. Подождите минуту и попробуйте снова.' });
   },
 
   signIn: async (email: string, password: string) => {
     set({ error: null });
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) set({ error: error.message || JSON.stringify(error) });
+    if (error) set({ error: error.message || 'Неверный email или пароль' });
   },
 
   signOut: async () => {
